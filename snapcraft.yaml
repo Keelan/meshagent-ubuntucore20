@@ -1,0 +1,24 @@
+name: baapp-meshagent-ubuntucore20
+base: core20
+version: '1.0'
+summary: baapp MeshCentral Agent for Ubuntu Core 20
+description: |
+  Adds a MeshCentral agent for remote access to Ubuntu Core 20 devices.
+confinement: devmode
+grade: stable
+
+apps:
+  baapp-meshagent-ubuntucore20:
+    command: meshinstall.sh
+        
+  baapp-meshagent-ubuntucore20-service:
+    command: meshservice.sh
+    daemon: simple
+    restart-condition: always
+    passthrough:
+      restart-delay: 5s
+
+parts:
+  baapp-meshagent-ubuntucore20:
+    source: meshsource/
+    plugin: dump
