@@ -1,36 +1,5 @@
 #!/usr/bin/env bash
 
-CheckStartupType() {
-  # 1 = Systemd
-  # 2 = Upstart
-  # 3 = init.d
-  # 5 = BSD
-
-  # echo "Checking if Linux or BSD Platform"
-  plattype=`uname | awk '{ tst=tolower($0);a=split(tst, res, "bsd"); if(a==1) { print "LINUX"; } else { print "BSD"; }}'`
-  if [[ $plattype == 'BSD' ]]
-   then return 5;
-  fi
-
-  # echo "Checking process autostart system..."
-  starttype1=`cat /proc/1/status | grep 'Name:' | awk '{ print $2; }'`
-  starttype2=`ps -p 1 -o command= | awk '{a=split($0,res," "); b=split(res[a],tp,"/"); print tp[b]; }'`
- 
-  # Systemd
-  if [[ $starttype1 == 'systemd' ]]
-    then return 1;
-  elif [[ $starttype1 == 'init'  ||  $starttype2 == 'init' ]]
-    then
-        if [ -d "/etc/init" ]
-            then
-                return 2;
-            else
-                return 3;
-        fi
-  fi
-  return 0;
-}
-
 function download() {
   read proto server path <<<$(echo ${1//// })
   DOC=/${path// //}
@@ -51,72 +20,43 @@ UpdateMshFile() {
   # Remove all lines that start with "StartupType="
   sed '/^StartupType=/ d' < $SNAP_DATA/meshagent.msh >> $SNAP_DATA/meshagent2.msh
   # Add the startup type to the file
-  echo "StartupType=$starttype" >> $SNAP_DATA/meshagent2.msh
+  echo "StartupType=1" >> $SNAP_DATA/meshagent2.msh
   mv $SNAP_DATA/meshagent2.msh $SNAP_DATA/meshagent.msh
 }
 
 CheckInstallAgent() {
   # echo "Checking mesh identifier..."
-  if [ -e "/usr/local" ]
-  then
-    installpath="/usr/local/mesh"
-  else
-    installpath="/usr/mesh"
-  fi
-  if [ $# -ge 2 ]
-  then
-    uninstall=$1
-    url=$2
-    meshid=$3
-    if [[ $4 =~ ^--WebProxy= ]];
-    then
-       webproxy=$4
-    fi
-
-
-
+    url='https://remote.buildingautomation.app'
+    meshid='3Va5GD$@FStgPfulgxhDNpctc$ibTX2BQ$lqV10CW7uJ35g3AWyrqkHUuhoFB55'
     meshidlen=${#meshid}
     if [ $meshidlen -gt 63 ]
     then
       machineid=0
       machinetype=$( uname -m )
-
       # If we have 3 arguments...
-      if [ $# -ge 4 ] &&  [ -z "$webproxy" ]
+      if [ $# -ge 3 ]
       then
         # echo "Computer type is specified..."
-        machineid=$4
+        machineid=$3
       else
         # echo "Detecting computer type..."
         if [ $machinetype == 'x86_64' ] || [ $machinetype == 'amd64' ]
         then
-          if [ $starttype -eq 5 ]
-          then
-            # FreeBSD x86, 64 bit
-            machineid=30
-          else
-            # Linux x86, 64 bit
-            bitlen=$( getconf LONG_BIT )
-            if [ $bitlen == '32' ] 
-            then
-                # 32 bit OS
-                machineid=5
-            else
-                # 64 bit OS
-                machineid=6
-            fi
-          fi
+			# Linux x86, 64 bit
+			bitlen=$( getconf LONG_BIT )
+			if [ $bitlen == '32' ] 
+			then
+				# 32 bit OS
+				machineid=5
+			else
+				# 64 bit OS
+				machineid=6
+			fi
         fi
         if [ $machinetype == 'x86' ] || [ $machinetype == 'i686' ] || [ $machinetype == 'i586' ]
         then
-          if [ $starttype -eq 5 ]
-          then
-            # FreeBSD x86, 32 bit
-            machineid=31
-          else
-            # Linux x86, 32 bit
-            machineid=5
-          fi
+				# Linux x86, 32 bit
+				machineid=5
         fi
         if [ $machinetype == 'armv6l' ] || [ $machinetype == 'armv7l' ]
         then
@@ -130,90 +70,49 @@ CheckInstallAgent() {
         fi
         # Add more machine types, detect KVM support... here.
       fi
-
       if [ $machineid -eq 0 ]
       then
         echo "Unsupported machine type: $machinetype."
       else
-        DownloadAgent $uninstall $url $meshid $machineid
+        DownloadAgent $url $meshid $machineid
       fi
-
     else
-      echo "Device group identifier is not correct, must be at least 64 characters long."
+      echo "MeshID is not correct, must be at least 64 characters long."
     fi
-  else
-    echo "URI and/or device group identifier have not been specified, must be passed in as arguments."
-    return 0;
-  fi
 }
 
 DownloadAgent() {
-  uninstall=$1
-  url=$2
-  meshid=$3
-  machineid=$4
-  echo "Downloading agent #$machineid..."
-  download $url/meshagents?id=$machineid > $SNAP_DATA/meshagent || wget $url/meshagents?id=$machineid -O $SNAP_DATA/meshagent || curl -L --output $SNAP_DATA/meshagent $url/meshagents?id=$machineid
-
+  url=$1
+  meshid=$2
+  machineid=$3
+  echo "Downloading mesh agent #$machineid..."
+  download $url/meshagents?id=$machineid > $SNAP_DATA/meshagent
   # If it did not work, try again using http
   if [ $? != 0 ]
   then
     url=${url/"https://"/"http://"}
-    download $url/meshagents?id=$machineid > $SNAP_DATA/meshagent || wget $url/meshagents?id=$machineid -O $SNAP_DATA/meshagent || curl -L --output $SNAP_DATA/meshagent $url/meshagents?id=$machineid
+    download $url/meshagents?id=$machineid > $SNAP_DATA/meshagent
   fi
-
   if [ $? -eq 0 ]
   then
-    echo "Agent downloaded."
+    echo "Mesh agent downloaded."
     # TODO: We could check the meshagent sha256 hash, but best to authenticate the server.
     chmod 755 $SNAP_DATA/meshagent
-    download $url/meshagents?id=$machineid > $SNAP_DATA/meshagent || wget $url/meshsettings?id=$meshid -O $SNAP_DATA/meshagent.msh || curl -L --output $SNAP_DATA/meshagent.msh $url/meshsettings?id=$meshid
-
-    # If it did not work, try again using http
-    if [ $? -ne 0 ]
-    then
-      download $url/meshagents?id=$machineid > $SNAP_DATA/meshagent || wget $url/meshsettings?id=$meshid -O $SNAP_DATA/meshagent.msh || curl -L --output $SNAP_DATA/meshagent.msh $url/meshsettings?id=$meshid
-    fi
-
+    download $url/meshsettings?id=$meshid > $SNAP_DATA/meshagent.msh
     if [ $? -eq 0 ]
     then
-      # Update the .msh file and run the agent installer/uninstaller
-      if [ $uninstall == 'uninstall' ] || [ $uninstall == 'UNINSTALL' ]
-      then
-        # Uninstall the agent
-        $SNAP_DATA/meshagent -fulluninstall
-      else
-        # Install the agent
-        UpdateMshFile
-        $SNAP_DATA/meshagent -fullinstall --copy-msh=1 $webproxy
-      fi
+      UpdateMshFile
     else
-      echo "Unable to download device group settings at: $url/meshsettings?id=$meshid."
+      echo "Unable to download mesh agent settings at: $url/meshsettings?id=$meshid."
     fi
   else
-    echo "Unable to download agent at: $url/meshagents?id=$machineid."
+    echo "Unable to download mesh agent at: $url/meshagents?id=$machineid."
   fi
 }
 
-
-CheckStartupType
-starttype=$?
-#echo "Type: $starttype"
-
-currentuser=$( whoami )
-if [ $currentuser == 'root' ]
+if [ ! $# -ge 2 ]
 then
-  if [ $# -eq 0 ]
-  then
-    echo -e "This script will install or uninstall a agent, usage:\n  $0 [serverUrl] [deviceGroupId] (machineId)\n  $0 uninstall [serverUrl] [deviceGroupId] (machineId)"
-  else
-    if [ $1 == 'uninstall' ] || [ $1 == 'UNINSTALL' ]
-    then
-      CheckInstallAgent 'uninstall' $2 $3 $4
-    else
-      CheckInstallAgent 'install' $1 $2 $3
-    fi
-  fi
+    echo -e "This script will download and configure a mesh agent. Once properly configured, it will be started as a service.\nUsage: meshagent serverurl 'meshid'"
 else
-  echo "Must be f to install or uninstall the agent."
+    CheckInstallAgent $1 $2 $3
 fi
