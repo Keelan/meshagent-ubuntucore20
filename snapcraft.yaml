@@ -1,5 +1,4 @@
 name: baapp-meshagent-ubuntucore20
-base: core20
 version: '1.0'
 summary: baapp MeshCentral Agent for Ubuntu Core 20
 description: |
