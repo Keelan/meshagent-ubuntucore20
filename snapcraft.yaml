@@ -1,4 +1,4 @@
-name: baapp-meshagent-ubuntucore20
+name: baapp meshagent-ubuntucore20
 version: '1.0'
 summary: baapp MeshCentral Agent for Ubuntu Core 20
 description: |
@@ -8,7 +8,7 @@ grade: stable
 
 apps:
   baapp-meshagent-ubuntucore20:
-    command: meshinstall.sh
+    command: meshinstall.sh --arg1 --arg2
         
   baapp-meshagent-ubuntucore20-service:
     command: meshservice.sh
