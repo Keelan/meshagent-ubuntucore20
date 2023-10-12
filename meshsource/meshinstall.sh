@@ -26,8 +26,8 @@ UpdateMshFile() {
 
 CheckInstallAgent() {
   # echo "Checking mesh identifier..."
-    url="https://remote.buildingautomation.app"
-    meshid="d3Va5GD$@FStgPfulgxhDNpctc$ibTX2BQ$lqV10CW7uJ35g3AWyrqkHUuhoFB55"
+    url=$1
+    meshid=$2
     meshidlen=${#meshid}
     if [ $meshidlen -gt 63 ]
     then
